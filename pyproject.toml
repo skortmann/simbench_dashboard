@@ -1,0 +1,11 @@
+[project]
+name = "simbench-dashboard"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pandapower[all]>=3.1.2",
+    "simbench>=1.6.1",
+    "streamlit>=1.47.1",
+]
