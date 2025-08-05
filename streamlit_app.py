@@ -4,43 +4,50 @@ import simbench as sb
 st.set_page_config(page_title="SimBench Dashboard", layout="wide")
 st.title("🚀 SimBench Dashboard")
 
-# 1) Fetch all codes once, using st.cache_data
+# Cache SimBench codes
 @st.cache_data
 def load_codes():
     return sb.collect_all_simbench_codes()
 
 codes = load_codes()
 
-# 2) Split codes into their 6 parts:
+# Split codes into their components
 parts = [c.split("-") for c in codes]
-versions     = sorted({p[0] for p in parts})
-voltages     = sorted({p[1] for p in parts})
-urban_types  = sorted({p[2] for p in parts})
-lv_subnets   = sorted({p[3] for p in parts})
-scenarios    = sorted({p[4] for p in parts})
-switch_flags = sorted({p[5] for p in parts})
 
-# 3) Page layout
+# Helper to get unique sorted list for a given index and optional filters
+def get_options(idx, filters):
+    vals = [p[idx] for p in parts if all(p[i] == v for i, v in filters.items())]
+    return sorted(set(vals))
+
+# 3) Page layout with cascading selectboxes
 col1, col2, col3 = st.columns(3)
 with col1:
+    versions = get_options(0, {})
     version = st.selectbox("Version", versions)
 with col2:
+    voltages = get_options(1, {0: version})
     voltage = st.selectbox("Voltage levels", voltages)
 with col3:
-    urban = st.selectbox("Urbanisation", urban_types)
+    urbans = get_options(2, {0: version, 1: voltage})
+    urban = st.selectbox("Urbanisation", urbans)
 
 col4, col5, col6 = st.columns(3)
 with col4:
+    lv_subnets = get_options(3, {0: version, 1: voltage, 2: urban})
     lv_subnet = st.selectbox("LV subnet", lv_subnets)
 with col5:
+    scenarios = get_options(4, {0: version, 1: voltage, 2: urban, 3: lv_subnet})
     scenario = st.selectbox("Scenario", scenarios)
 with col6:
-    # if the only flag is 'sw', checkbox toggles it
-    include_sw = st.checkbox("Include switches", value=True)
+    # Determine if switch flag present for current selection
+    sw_choices = get_options(5, {0: version, 1: voltage, 2: urban, 3: lv_subnet, 4: scenario})
+    include_sw = False
+    if sw_choices:
+        include_sw = st.checkbox("Include switches", value=True)
 
-# 4) Reconstruct and load
-sw_part = "sw" if include_sw and switch_flags else "no_sw"
-code_str = "-".join([version, voltage, urban, lv_subnet, scenario, sw_part])
+# Reconstruct code
+sw_part = "sw" if include_sw and "sw" in sw_choices else ""
+code_str = "-".join([version, voltage, urban, lv_subnet, scenario] + ([sw_part] if sw_part else []))
 
 st.markdown(f"**Selected code:** `{code_str}`")
 
