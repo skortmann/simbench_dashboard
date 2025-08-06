@@ -31,6 +31,8 @@ simbench-dashboard/
 
 ## 3. Run the dashboard
 
+Run in terminal: 
+
 streamlit run streamlit_app.py
 
 Then open the URL shown (usually http://localhost:8501) in your browser.

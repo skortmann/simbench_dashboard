@@ -2,6 +2,11 @@ import streamlit as st
 import pandapower as pp
 from pandapower.plotting.plotly import vlevel_plotly, pf_res_plotly
 
+import plotly.graph_objects as go
+from pandapower.plotting.plotly.traces import create_bus_trace, create_line_trace
+import numpy as np
+import pandas as pd
+
 st.set_page_config(page_title="Visualize Network", layout="wide")
 st.header("🗺️ Network Visualization")
 
@@ -9,9 +14,6 @@ if 'net' not in st.session_state:
     st.warning("Load a network on the Home page first.")
 else:
     net = st.session_state.net
-
-    # Run a simple power flow
-    pp.runpp(net)
 
     # Voltage-level colored network plot (disable HTML export)
     st.subheader("Network by Voltage Level")

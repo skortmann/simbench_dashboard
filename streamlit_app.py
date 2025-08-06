@@ -51,6 +51,8 @@ code_str = "-".join([version, voltage, urban, lv_subnet, scenario] + ([sw_part] 
 
 st.markdown(f"**Selected code:** `{code_str}`")
 
+st.write(f"Time series is only available for: **1-MV-comm--0-sw**")
+
 if st.button("Load network"):
     st.session_state.net = sb.get_simbench_net(code_str)
     st.success(f"✅ Loaded network: `{code_str}`")

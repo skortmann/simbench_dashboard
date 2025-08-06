@@ -17,6 +17,39 @@ else:
         net.load['p_mw'] *= scale
         st.success(f"Scaled loads by {scale}×")
 
+    # Add a storage to the system
+    st.subheader("Add Storage")
+
+    with st.form("test"):
+        titel = st.text_input("Name", "Added_storage_1")
+        power = st.number_input("Power (MW)", value= 1.0, min_value=0.0, step=0.1)
+        capacity = st.number_input("Capacity (MWh)", value = 1.0, min_value=0.0, step=0.1)
+        bus_connection = st.number_input("Connect to Bus (Index)", step=1)
+
+        submitted = st.form_submit_button("Add storage")
+
+        if submitted:
+            try:
+                pp.create_storage(
+                    net=st.session_state.net,
+                    bus=int(bus_connection),
+                    p_mw=float(power),
+                    max_e_mwh=float(capacity),
+                    name=titel
+                )
+                st.success(f"Storage '{titel}' was successfully added to the network.")
+            except Exception as e:
+                st.error(f"Error while adding the storage '{titel}': {e}")
+
+
+
+
+
+    if st.button("Apply scaling"):
+        net.load['p_mw'] *= scale
+        st.success(f"Scaled loads by {scale}×")
+
+
     # Export options
     st.subheader("Save Network")
     fmt = st.selectbox("Export format", ["Pickle (.p)", "JSON (.json)", "Excel (.xlsx)"])
