@@ -1,0 +1,12 @@
+# Deployment dependencies for Streamlit Community Cloud.
+# Deliberately slim: pandapower core (NOT pandapower[all]) keeps the install
+# below Community Cloud resource limits; everything the app imports is listed
+# explicitly.
+streamlit>=1.58
+pandapower>=3.5.6
+simbench>=1.6.3
+plotly>=6.0
+networkx>=3.4
+tabulate>=0.9      # pandas DataFrame.to_markdown (report generation)
+xlsxwriter>=3.2    # Excel export of networks
+lightsim2grid>=1.3.1  # fast C++ Newton-Raphson power flow backend
