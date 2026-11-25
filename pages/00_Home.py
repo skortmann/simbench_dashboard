@@ -1,58 +1,116 @@
+"""Home page: platform introduction and SimBench network selection."""
+
 import streamlit as st
-import simbench as sb
 
-st.set_page_config(page_title="SimBench Dashboard", layout="wide")
-st.title("🚀 SimBench Dashboard")
+from simbench_app import config, data_loading as dl, utils
+from simbench_app.explanations import explain
+from simbench_app.i18n import tr
 
-# Cache SimBench codes
-@st.cache_data
-def load_codes():
-    return sb.collect_all_simbench_codes()
+st.set_page_config(page_title=tr("SimBench Analysis Platform"), page_icon="⚡",
+                   layout="wide")
 
-codes = load_codes()
+st.title(tr("⚡ SimBench Network Analysis Platform"))
+st.markdown(explain("platform"))
 
-# Split codes into their components
-parts = [c.split("-") for c in codes]
+with st.expander(tr("How SimBench codes are structured")):
+    st.markdown(explain("code_structure"))
 
-# Helper to get unique sorted list for a given index and optional filters
-def get_options(idx, filters):
-    vals = [p[idx] for p in parts if all(p[i] == v for i, v in filters.items())]
-    return sorted(set(vals))
 
-# 3) Page layout with cascading selectboxes
+def _load(code: str) -> None:
+    """Load a network into the session, replacing any previous one."""
+    try:
+        net = dl.load_network(code)
+    except Exception as exc:
+        st.error(tr(
+            "Loading `{code}` failed: {exc}\n\n"
+            "Likely causes: an invalid code combination (not every component "
+            "combination exists in the dataset), or insufficient memory for "
+            "very large grids (e.g. complete HV datasets) on small hosts.",
+            code=code, exc=exc))
+        return
+    st.session_state[config.KEY_NET] = net
+    st.session_state[config.KEY_CODE] = code
+    st.session_state[config.KEY_LOADED_AT] = utils.now_iso()
+    # Results and modification log belong to the previous network.
+    st.session_state.pop(config.KEY_PF_RESULT, None)
+    st.session_state.pop(config.KEY_MODLOG, None)
+    st.success(tr("Loaded network `{code}` — {buses} buses, {lines} lines.",
+                  code=code, buses=len(net.bus), lines=len(net.line)))
+
+
+# --- quick start ----------------------------------------------------------------
+st.subheader(tr("Quick start"))
+st.markdown(tr(
+    "New here? Load the small example network `{code}` "
+    "(a rural low-voltage feeder) and explore the pages on the left.",
+    code=config.DEFAULT_CODE))
+if st.button(tr("Load example network"), type="primary"):
+    _load(config.DEFAULT_CODE)
+
+# --- cascading code selection ------------------------------------------------------
+st.subheader(tr("Select a SimBench network"))
+
+codes = dl.list_codes()
+parts = dl.split_codes(codes)
+
 col1, col2, col3 = st.columns(3)
 with col1:
-    versions = get_options(0, {})
-    version = st.selectbox("Version", versions)
+    version = st.selectbox(tr("Version"), dl.options_for(parts, 0, {}))
 with col2:
-    voltages = get_options(1, {0: version})
-    voltage = st.selectbox("Voltage levels", voltages)
+    voltage = st.selectbox(tr("Grid level"),
+                           dl.options_for(parts, 1, {0: version}))
 with col3:
-    urbans = get_options(2, {0: version, 1: voltage})
-    urban = st.selectbox("Urbanisation", urbans)
+    urban = st.selectbox(tr("Urbanisation / type"),
+                         dl.options_for(parts, 2, {0: version, 1: voltage}))
 
 col4, col5, col6 = st.columns(3)
 with col4:
-    lv_subnets = get_options(3, {0: version, 1: voltage, 2: urban})
-    lv_subnet = st.selectbox("LV subnet", lv_subnets)
+    lv_subnet = st.selectbox(
+        tr("LV subnet"), dl.options_for(parts, 3, {0: version, 1: voltage, 2: urban}),
+        help=tr("Only meaningful for combined MV/LV grids; empty otherwise."))
 with col5:
-    scenarios = get_options(4, {0: version, 1: voltage, 2: urban, 3: lv_subnet})
-    scenario = st.selectbox("Scenario", scenarios)
+    scenario = st.selectbox(
+        tr("Scenario"), dl.options_for(parts, 4, {0: version, 1: voltage,
+                                              2: urban, 3: lv_subnet}),
+        help=tr("0 = today, 1 = near future, 2 = far future (more DER)."))
 with col6:
-    # Determine if switch flag present for current selection
-    sw_choices = get_options(5, {0: version, 1: voltage, 2: urban, 3: lv_subnet, 4: scenario})
-    include_sw = False
-    if sw_choices:
-        include_sw = st.checkbox("Include switches", value=True)
+    sw_choices = dl.options_for(parts, 5, {0: version, 1: voltage, 2: urban,
+                                           3: lv_subnet, 4: scenario})
+    include_sw = st.checkbox(tr("Include switches"), value=True) \
+        if "sw" in sw_choices else False
 
-# Reconstruct code
-sw_part = "sw" if include_sw and "sw" in sw_choices else ""
-code_str = "-".join([version, voltage, urban, lv_subnet, scenario] + ([sw_part] if sw_part else []))
+sw_part = ["sw"] if include_sw and "sw" in sw_choices else []
+code_str = "-".join([version, voltage, urban, lv_subnet, scenario] + sw_part)
 
-st.markdown(f"**Selected code:** `{code_str}`")
+meta = dl.describe_code(code_str)
+st.markdown(tr("**Selected code:** `{code}`", code=code_str))
+labels = dl.code_labels()
+st.table({tr("Property"): [labels[k] for k in meta], tr("Value"): list(meta.values())})
 
-st.write(f"Time series is only available for: **1-MV-comm--0-sw**")
+if code_str not in codes:
+    st.warning(tr("This exact combination does not exist in the SimBench dataset — "
+                  "adjust the selection above."))
+elif st.button(tr("Load network")):
+    _load(code_str)
 
-if st.button("Load network"):
-    st.session_state.net = sb.get_simbench_net(code_str)
-    st.success(f"✅ Loaded network: `{code_str}`")
+# --- session status ---------------------------------------------------------------
+st.divider()
+net = utils.get_net()
+if net is None:
+    st.info(tr("No network loaded yet."))
+else:
+    st.markdown(tr(
+        "**Currently loaded:** `{code}` "
+        "({buses} buses, {lines} lines, "
+        "{trafos} transformers) — loaded at {time}.",
+        code=utils.loaded_code(), buses=len(net.bus), lines=len(net.line),
+        trafos=len(net.trafo),
+        time=st.session_state.get(config.KEY_LOADED_AT, "?")))
+    st.markdown(tr(
+        "Continue with **Network Overview** for summary statistics, "
+        "**Topology Visualization** for the network map, or "
+        "**Power Flow Analysis** to compute the operating state."
+    ))
+
+st.caption(tr("Time series at full year length are part of every SimBench "
+              "network; see the *Profiles & Time Series* page."))
