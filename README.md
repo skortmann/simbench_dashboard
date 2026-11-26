@@ -5,6 +5,8 @@ inspection and analysis of [SimBench](https://simbench.de) benchmark networks**
 with [pandapower](https://www.pandapower.org): transparent, reproducible and
 explainable — numbers are always accompanied by what they mean.
 
+**Live demo:** <https://simbenchdashboard.streamlit.app/> (English / Deutsch)
+
 ## Features
 
 | Page | Purpose |
